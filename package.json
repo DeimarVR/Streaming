@@ -1,0 +1,16 @@
+{
+  "name": "aula-viva",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Aula Viva — plataforma white-label de clases en vivo para colegios y universidades.",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev:api": "npm run start:dev -w @aula-viva/api",
+    "dev:frontend": "npm run dev -w @aula-viva/frontend",
+    "build": "npm run build -w @aula-viva/api && npm run build -w @aula-viva/frontend",
+    "prisma:migrate": "npm run prisma:migrate -w @aula-viva/api",
+    "prisma:generate": "npm run prisma:generate -w @aula-viva/api",
+    "prisma:seed": "npm run prisma:seed -w @aula-viva/api"
+  }
+}

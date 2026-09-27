@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum InstitutionType {
+  COLEGIO
+  UNIVERSIDAD
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  TEACHER
+  STUDENT
+  GUARDIAN
+}
+
+enum SessionStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+}
+
+/// Tenant raíz: cada colegio o universidad es una institución.
+model Institution {
+  id        String          @id @default(cuid())
+  name      String
+  slug      String          @unique
+  type      InstitutionType @default(COLEGIO)
+  /// Tema/branding por institución (colores, logo). Se aplica en el front.
+  branding  Json?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  users   User[]
+  courses Course[]
+
+  @@index([slug])
+}
+
+model User {
+  id            String   @id @default(cuid())
+  institutionId String
+  email         String
+  passwordHash  String
+  name          String
+  role          Role     @default(STUDENT)
+  color         String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  institution       Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  taughtCourses     Course[]       @relation("CourseTeacher")
+  enrollments       Enrollment[]
+  attendances       Attendance[]
+  gradesReceived    Grade[]        @relation("GradeStudent")
+  gradesGiven       Grade[]        @relation("GradeTeacher")
+  guardianOf        GuardianLink[] @relation("GuardianSide")
+  guardedBy         GuardianLink[] @relation("StudentSide")
+  materialsUploaded Material[]
+
+  @@unique([institutionId, email])
+  @@index([institutionId, role])
+}
+
+model Course {
+  id            String   @id @default(cuid())
+  institutionId String
+  name          String
+  subject       String?
+  level         String?
+  teacherId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  institution Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  teacher     User?          @relation("CourseTeacher", fields: [teacherId], references: [id])
+  enrollments Enrollment[]
+  sessions    ClassSession[]
+  grades      Grade[]
+  materials   Material[]
+
+  @@index([institutionId])
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  courseId  String
+  studentId String
+  createdAt DateTime @default(now())
+
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, studentId])
+}
+
+model ClassSession {
+  id          String        @id @default(cuid())
+  courseId    String
+  title       String
+  status      SessionStatus @default(SCHEDULED)
+  scheduledAt DateTime?
+  durationMin Int           @default(45)
+  startedAt   DateTime?
+  endedAt     DateTime?
+  /// Nombre de sala para el proveedor de video (LiveKit, etc.). Agnóstico de proveedor.
+  roomName    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attendances Attendance[]
+  recording   Recording?
+
+  @@index([courseId, status])
+}
+
+model Attendance {
+  id               String           @id @default(cuid())
+  sessionId        String
+  studentId        String
+  status           AttendanceStatus @default(PRESENT)
+  joinedAt         DateTime?
+  leftAt           DateTime?
+  secondsConnected Int              @default(0)
+
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+}
+
+model Grade {
+  id        String   @id @default(cuid())
+  courseId  String
+  studentId String
+  teacherId String?
+  item      String
+  value     Float
+  createdAt DateTime @default(now())
+
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student User   @relation("GradeStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  teacher User?  @relation("GradeTeacher", fields: [teacherId], references: [id])
+
+  @@index([courseId, studentId])
+}
+
+model Recording {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
+  provider    String   @default("cloudflare-stream")
+  url         String?
+  durationSec Int?
+  createdAt   DateTime @default(now())
+
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Material {
+  id           String   @id @default(cuid())
+  courseId     String
+  title        String
+  url          String
+  type         String?
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  uploadedBy User?  @relation(fields: [uploadedById], references: [id])
+
+  @@index([courseId])
+}
+
+model GuardianLink {
+  id         String @id @default(cuid())
+  guardianId String
+  studentId  String
+
+  guardian User @relation("GuardianSide", fields: [guardianId], references: [id], onDelete: Cascade)
+  student  User @relation("StudentSide", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([guardianId, studentId])
+}
