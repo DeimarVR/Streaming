@@ -9,7 +9,7 @@ import { LiveClass } from './LiveClass';
 
 const NAVS: Record<Role, [string, string, string, boolean?][]> = {
   estudiante: [['inicio', 'grid', 'Inicio'], ['vivo', 'cast', 'Clase en vivo', true], ['notas', 'chart', 'Mis notas'], ['clases', 'calendar', 'Mis clases'], ['grab', 'play', 'Grabaciones']],
-  profesor: [['inicio', 'grid', 'Dashboard'], ['vivo', 'cast', 'Transmisión', true], ['estud', 'users', 'Estudiantes'], ['cursos', 'book', 'Mis clases'], ['mat', 'folder', 'Materiales']],
+  profesor: [['inicio', 'grid', 'Dashboard'], ['vivo', 'cast', 'Transmisión', true], ['estud', 'users', 'Estudiantes'], ['cursos', 'book', 'Mis cursos'], ['mat', 'folder', 'Materiales']],
   director: [['inicio', 'chart', 'Resumen'], ['vivo', 'cast', 'En vivo', true], ['docentes', 'users', 'Docentes'], ['cursos', 'book', 'Cursos'], ['reportes', 'doc', 'Reportes']],
   acudiente: [['inicio', 'grid', 'Inicio'], ['notas', 'chart', 'Notas'], ['asist', 'check', 'Asistencia'], ['grab', 'play', 'Grabaciones'], ['mensajes', 'mail', 'Mensajes']],
 };

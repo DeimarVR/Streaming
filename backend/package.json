@@ -1,5 +1,5 @@
 {
-  "name": "@aula-viva/api",
+  "name": "@aula-viva/backend",
   "version": "0.1.0",
   "private": true,
   "scripts": {

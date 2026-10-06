@@ -1,4 +1,5 @@
-import { useDemo, avg, fmt, gradeColor, initials, TEACHER_SUBJECT, type Grade, type Student, type Role } from '../demo/store';
+import { useState } from 'react';
+import { useDemo, avg, fmt, gradeColor, initials, TEACHER_SUBJECT, HOMEROOM_GROUP, TEACHER_COURSES, type Grade, type Student, type Role } from '../demo/store';
 import { Header, Panel, Stat, Thumb, Avatar } from './parts';
 import { useShell } from './shellctx';
 import { Icon } from './icons';
@@ -200,7 +201,7 @@ function StudentManageRow({ s }: { s: Student }) {
       <div className="avatar" style={{ background: s.color, width: 36, height: 36 }}>{initials(s.name)}</div>
       <div style={{ minWidth: 0 }}>
         <b style={{ fontWeight: 600 }}>{s.name}{s.isMe && <span className="pill soon" style={{ fontSize: 9, padding: '1px 6px', marginLeft: 6 }}>demo</span>}</b>
-        <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>Asistencia {s.attendance}% · {s.grades.filter((g) => g.subject === TEACHER_SUBJECT).length} notas</div>
+        <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{s.course} · Asistencia {s.attendance}% · {s.grades.filter((g) => g.subject === TEACHER_SUBJECT).length} notas</div>
       </div>
       <span className="grade" style={{ color: gradeColor(a), marginLeft: 'auto' }}>{fmt(a)}</span>
       <button className="btn btn-primary btn-sm" style={{ marginLeft: 6 }} onClick={() => openGrade(s.id)}>＋ Nota</button>
@@ -212,16 +213,20 @@ function StudentManageRow({ s }: { s: Student }) {
 function TeacherView() {
   const { view, setView, students, showToast } = useDemo();
   const { openStartClass, openAddStudent } = useShell();
+  const [groupFilter, setGroupFilter] = useState<string>(HOMEROOM_GROUP);
+  const homeroom = students.filter((s) => s.course === HOMEROOM_GROUP);
+
   if (view === 'inicio') {
-    const classAvg = avg(students.flatMap((s) => s.grades), TEACHER_SUBJECT);
+    const classAvg = avg(homeroom.flatMap((s) => s.grades), TEACHER_SUBJECT);
+    const homeroomAtt = homeroom.length ? Math.round(homeroom.reduce((a, s) => a + s.attendance, 0) / homeroom.length) : 0;
     return (
       <>
         <Header role="profesor" title="¡Hola Marcela! Bienvenida a tu panel de docente." sub="Prof. Marcela Ríos · Matemáticas" />
         <div className="content">
           <div className="cards-4">
-            <Stat label="Clases programadas" value="3" delta="2 dictadas" icon="calendar" />
-            <Stat label="Promedio del curso (9°B)" value={fmt(classAvg)} delta="ver historial" icon="chart" />
-            <Stat label="Estudiantes registrados" value={String(students.length)} delta="9°B" icon="users" />
+            <Stat label="Cursos que dicto" value={String(TEACHER_COURSES.length)} delta="grupos" icon="book" />
+            <Stat label={'Promedio ' + HOMEROOM_GROUP} value={fmt(classAvg)} delta="tu grupo" icon="chart" />
+            <Stat label="Estudiantes en total" value={String(students.length)} delta={TEACHER_COURSES.length + ' cursos'} icon="users" />
             <Stat label="Tareas por revisar" value="17" delta="vencen este viernes" warn icon="check" />
           </div>
           <div className="panel live-banner">
@@ -234,9 +239,19 @@ function TeacherView() {
               <button className="btn btn-primary" onClick={openStartClass}><Icon n="cast" /> Iniciar transmisión</button>
             </div>
           </div>
-          <Panel title="Estudiantes de 9°B (asistencia y calificación)" link="Gestionar →" onLink={() => setView('estud')} flush>
+          <Panel title="Dirección de grupo" right={<span className="pill ok" style={{ marginLeft: 'auto' }}>Director de grupo</span>}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '6px 6px', flexWrap: 'wrap' }}>
+              <div className="ring" style={{ width: 46, height: 46, fontSize: 18, background: 'var(--brand)' }}>{HOMEROOM_GROUP[0]}</div>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <b style={{ fontWeight: 600 }}>Eres director de grupo de {HOMEROOM_GROUP}</b>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-faint)' }}>{homeroom.length} estudiantes · asistencia promedio {homeroomAtt}%</div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setGroupFilter(HOMEROOM_GROUP); setView('estud'); }}>Ver mi grupo →</button>
+            </div>
+          </Panel>
+          <Panel title={'Estudiantes de ' + HOMEROOM_GROUP + ' (tu grupo)'} link="Gestionar →" onLink={() => { setGroupFilter(HOMEROOM_GROUP); setView('estud'); }} flush>
             <div className="student-grid">
-              {students.slice(0, 4).map((s) => {
+              {homeroom.slice(0, 4).map((s) => {
                 const a = avg(s.grades, TEACHER_SUBJECT);
                 return (
                   <div className="stud" key={s.id}>
@@ -257,52 +272,67 @@ function TeacherView() {
       </>
     );
   }
+
   if (view === 'estud') {
+    const groups = TEACHER_COURSES.map((c) => c.group);
+    const chips = ['Todos', ...groups];
+    const filtered = groupFilter === 'Todos' ? students : students.filter((s) => s.course === groupFilter);
     return (
       <>
-        <Header role="profesor" title="Estudiantes" sub={'9°B · Matemáticas · ' + students.length + ' registrados'} />
+        <Header role="profesor" title="Estudiantes" sub={students.length + ' estudiantes · ' + groups.length + ' cursos'} />
         <div className="content">
           <div className="panel" style={{ background: 'var(--brand-soft)', borderColor: 'var(--brand)' }}>
             <div className="panel-b" style={{ padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 20 }}>💡</span>
-              <span style={{ fontSize: 13.5, color: 'var(--brand-ink)', flex: 1, minWidth: 200 }}>Agrega una nota a <b>Sofía</b> y luego entra como <b>Estudiante</b> o <b>Acudiente</b>: la verás reflejada al instante.</span>
+              <span style={{ fontSize: 13.5, color: 'var(--brand-ink)', flex: 1, minWidth: 200 }}>Agrega una nota a <b>Sofía</b> (9°B) y luego entra como <b>Estudiante</b> o <b>Acudiente</b>: la verás reflejada al instante.</span>
               <button className="btn btn-primary btn-sm" onClick={openAddStudent}>＋ Registrar estudiante</button>
             </div>
           </div>
-          <Panel title="Lista del curso" right={<span style={{ fontSize: 12, color: 'var(--ink-faint)' }}>Promedio en {TEACHER_SUBJECT}</span>}>
-            <div className="list-plain">{students.map((s) => <StudentManageRow key={s.id} s={s} />)}</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--ink-faint)', fontWeight: 600, marginRight: 2 }}>Curso:</span>
+            {chips.map((g) => (
+              <button key={g} className={`btn btn-sm ${groupFilter === g ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setGroupFilter(g)}>
+                {g}{g === HOMEROOM_GROUP ? ' ★' : ''}
+              </button>
+            ))}
+          </div>
+          <Panel
+            title={groupFilter === 'Todos' ? 'Todos los cursos' : 'Curso ' + groupFilter}
+            right={groupFilter === HOMEROOM_GROUP ? <span className="pill ok" style={{ marginLeft: 'auto' }}>Dir. de grupo</span> : undefined}
+          >
+            <div className="list-plain">{filtered.map((s) => <StudentManageRow key={s.id} s={s} />)}</div>
           </Panel>
         </div>
       </>
     );
   }
+
   if (view === 'cursos') {
-    const courses: [string, string, string][] = [
-      ['Matemáticas', '9°B · ' + students.length + ' estudiantes', '#3B39D6'],
-      ['Matemáticas', '10°A · 30 estudiantes', '#3B39D6'],
-      ['Estadística', '11°A · 34 estudiantes', '#1F9E6E'],
-      ['Refuerzo', 'Grupo mixto · 12', '#E0813B'],
-    ];
     return (
       <>
-        <Header role="profesor" title="Mis cursos" sub="4 cursos activos este periodo" />
+        <Header role="profesor" title="Mis cursos" sub={'Dictas Matemáticas en ' + TEACHER_COURSES.length + ' grupos'} />
         <div className="content">
           <div className="cards-3">
-            {courses.map(([subj, meta, c], i) => (
-              <div className="panel" key={i}>
-                <div style={{ height: 80, background: `linear-gradient(150deg,${c},${c}aa)`, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 28 }}>📚</div>
-                <div style={{ padding: 14 }}>
-                  <b style={{ fontSize: 15, display: 'block' }}>{subj}</b>
-                  <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>{meta}</span>
-                  <button className="btn btn-ghost btn-sm" style={{ width: '100%', marginTop: 12 }} onClick={openStartClass}>Iniciar clase</button>
+            {TEACHER_COURSES.map((c) => {
+              const count = students.filter((s) => s.course === c.group).length;
+              const isHome = c.group === HOMEROOM_GROUP;
+              return (
+                <div className="panel" key={c.id}>
+                  <div style={{ height: 80, background: 'linear-gradient(150deg,var(--grad1),var(--grad2))', display: 'grid', placeItems: 'center', color: '#fff', fontFamily: "'Bricolage Grotesque'", fontWeight: 700, fontSize: 26 }}>{c.group}</div>
+                  <div style={{ padding: 14 }}>
+                    <b style={{ fontSize: 15, display: 'block' }}>{c.subject}{isHome && <span className="pill ok" style={{ marginLeft: 8, fontSize: 10 }}>Dir. de grupo</span>}</b>
+                    <span style={{ fontSize: 13, color: 'var(--ink-faint)' }}>{c.group} · {count} estudiantes</span>
+                    <button className="btn btn-ghost btn-sm" style={{ width: '100%', marginTop: 12 }} onClick={openStartClass}>Iniciar clase</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </>
     );
   }
+
   if (view === 'mat') {
     const files: [string, string, string][] = [
       ['Guía ecuaciones cuadráticas.pdf', '2.1 MB · hoy', '📄'],
@@ -331,7 +361,6 @@ function TeacherView() {
   }
   return null;
 }
-
 
 /* ---------- DIRECCIÓN ---------- */
 function DirectorView() {
